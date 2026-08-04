@@ -1,7 +1,5 @@
 export type TownType = 'city' | 'municipality' | 'town' | 'satellite' | 'ward';
 
-export type TownSource = 'curated' | 'geonames' | 'kenya-administrative-divisions';
-
 export interface Town {
   name: string;
   county: string;
@@ -10,7 +8,6 @@ export interface Town {
   lng?: number;
   constituency?: string;
   population?: number;
-  source: TownSource;
 }
 
 export interface TownWithDistance extends Town {

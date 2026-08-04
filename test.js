@@ -9,7 +9,6 @@ assert(searchResult.some((t) => t.name.toLowerCase().includes('kite')), 'search(
 
 const byName = kenyaTowns.getByName('Syokimau');
 assert(byName && byName.county === 'Machakos', 'getByName() should find Syokimau in Machakos');
-assert(byName.source === 'curated', 'Syokimau should remain a curated entry after the merge');
 assert(byName.lat === -1.3691 && byName.lng === 36.9436, 'Syokimau coordinates should be unchanged by the merge');
 
 const byCounty = kenyaTowns.getByCounty('Kiambu');
