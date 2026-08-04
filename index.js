@@ -62,7 +62,18 @@ function getByCounty(county) {
 }
 
 /**
- * Get all towns of a given type, e.g. "satellite", "city", "municipality", "town".
+ * Get all towns/wards belonging to a given constituency (case-insensitive).
+ * @param {string} constituency
+ * @returns {Array<Object>}
+ */
+function getByConstituency(constituency) {
+  if (!constituency) return [];
+  const c = constituency.toLowerCase().trim();
+  return towns.filter((t) => t.constituency && t.constituency.toLowerCase() === c);
+}
+
+/**
+ * Get all towns of a given type, e.g. "satellite", "city", "municipality", "town", "ward".
  * @param {string} type
  * @returns {Array<Object>}
  */
@@ -89,6 +100,7 @@ function getSatelliteTowns() {
  */
 function nearBy(lat, lng, radiusKm = 20) {
   return towns
+    .filter((t) => t.lat != null && t.lng != null)
     .map((t) => ({ ...t, distanceKm: distanceKm(lat, lng, t.lat, t.lng) }))
     .filter((t) => t.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm);
@@ -107,6 +119,7 @@ module.exports = {
   search,
   getByName,
   getByCounty,
+  getByConstituency,
   getByType,
   getSatelliteTowns,
   nearBy,
