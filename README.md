@@ -30,9 +30,7 @@ loaded into memory, and every function is a synchronous, in-memory filter/map/so
 - [Error handling](#error-handling)
 - [TypeScript support](#typescript-support)
 - [Attribution](#attribution)
-- [Contributing / expanding the dataset](#contributing--expanding-the-dataset)
 - [Versioning and changelog](#versioning-and-changelog)
-- [Publishing (for maintainers)](#publishing-for-maintainers)
 - [License](#license)
 
 ## Installation
@@ -56,7 +54,7 @@ console.log(all.length); // 8000+
 const syokimau = kenyaTowns.getByName('Syokimau');
 console.log(syokimau);
 // => { name: 'Syokimau', county: 'Machakos', type: 'satellite',
-//      lat: -1.3691, lng: 36.9436, source: 'curated' }
+//      lat: -1.3691, lng: 36.9436 }
 
 // Find everything within 15km of Nairobi CBD, nearest first
 const nearby = kenyaTowns.nearBy(-1.2921, 36.8219, 15);
@@ -83,8 +81,7 @@ like this:
   "county": "Machakos",
   "type": "satellite",
   "lat": -1.3691,
-  "lng": 36.9436,
-  "source": "curated"
+  "lng": 36.9436
 }
 ```
 
@@ -96,8 +93,7 @@ Ward records (from the official administrative hierarchy) have **no coordinates*
   "name": "Abakaile",
   "county": "Garissa",
   "constituency": "Dadaab",
-  "type": "ward",
-  "source": "kenya-administrative-divisions"
+  "type": "ward"
 }
 ```
 
@@ -112,7 +108,6 @@ Ward records (from the official administrative hierarchy) have **no coordinates*
 | `lng`          | `number`                | no               | Same as above.                                                         |
 | `constituency` | `string`                | no               | Present on `ward` records; the constituency the ward belongs to.       |
 | `population`   | `number`                | no               | Present when GeoNames reports a population figure.                    |
-| `source`       | `TownSource`            | yes              | `'curated'` \| `'geonames'` \| `'kenya-administrative-divisions'`      |
 
 ### `type` values
 
@@ -122,14 +117,6 @@ Ward records (from the official administrative hierarchy) have **no coordinates*
 - `satellite` — grown organically around a larger city/town, not an independent administrative
   unit (e.g. Syokimau, Kitengela, Ruaka) — this is the data other Kenya geodata packages miss
 - `ward` — official administrative ward; has no coordinates, has a `constituency` instead
-
-### `source` values
-
-Tracks data provenance — see [Attribution](#attribution) for what each source is:
-
-- `curated` — hand-entered/verified as part of this package
-- `geonames` — bulk-merged from GeoNames' populated-places data
-- `kenya-administrative-divisions` — bulk-merged from the official ward hierarchy
 
 ## API reference
 
@@ -175,7 +162,7 @@ Case-insensitive **exact** match on `name`.
 
 ```js
 kenyaTowns.getByName('syokimau'); // case doesn't matter
-// => { name: 'Syokimau', county: 'Machakos', type: 'satellite', lat: -1.3691, lng: 36.9436, source: 'curated' }
+// => { name: 'Syokimau', county: 'Machakos', type: 'satellite', lat: -1.3691, lng: 36.9436 }
 
 kenyaTowns.getByName('Nowhereville');
 // => undefined
@@ -215,7 +202,7 @@ field, so in practice this only returns wards.
 
 ```js
 kenyaTowns.getByConstituency('Dadaab');
-// => [{ name: 'Abakaile', county: 'Garissa', constituency: 'Dadaab', type: 'ward', source: 'kenya-administrative-divisions' }, ...]
+// => [{ name: 'Abakaile', county: 'Garissa', constituency: 'Dadaab', type: 'ward' }, ...]
 ```
 
 **Parameters:**
@@ -333,7 +320,7 @@ rather than catching exceptions.
 Type definitions are bundled in `index.d.ts` — no separate `@types/kenya-towns` package needed.
 
 ```ts
-import { getAll, getByType, nearBy, Town, TownType, TownWithDistance, TownSource } from 'kenya-towns';
+import { getAll, getByType, nearBy, Town, TownType, TownWithDistance } from 'kenya-towns';
 
 const cities: Town[] = getByType('city');
 
@@ -349,8 +336,7 @@ Exported types:
 | Type                | Shape                                                                             |
 |---------------------|-------------------------------------------------------------------------------------|
 | `TownType`          | `'city' \| 'municipality' \| 'town' \| 'satellite' \| 'ward'`                       |
-| `TownSource`        | `'curated' \| 'geonames' \| 'kenya-administrative-divisions'`                       |
-| `Town`              | `{ name: string; county: string; type: TownType; lat?: number; lng?: number; constituency?: string; population?: number; source: TownSource }` |
+| `Town`              | `{ name: string; county: string; type: TownType; lat?: number; lng?: number; constituency?: string; population?: number }` |
 | `TownWithDistance`  | `Town & { distanceKm: number }`                                                     |
 
 ## Attribution
@@ -370,31 +356,6 @@ Two other sources were evaluated and intentionally excluded from the shipped dat
 - **AFRICOVER/FAO's Kenya towns layer** — an old (~1998–2000) 1:100,000-scale shapefile, skipped
   as low marginal value over GeoNames' more current, more complete coverage.
 
-## Contributing / expanding the dataset
-
-`data/towns.json` combines a hand-curated core (~100 places, `source: "curated"`) with a bulk
-merge of GeoNames and `kenya-administrative-divisions` data (`scripts/merge-sources.js`, a
-maintainer-only script — not published with the package). PRs adding/correcting curated entries
-(especially satellite towns) are welcome — just follow the existing `{ name, county, type, lat,
-lng, source }` shape and set `source: "curated"`.
-
-If you add a new field or a new `type`/`source` value, update `TownType`/`TownSource`/`Town` in
-`index.d.ts` and this README to match.
-
-To refresh the bulk-merged data, run:
-
-```bash
-node scripts/merge-sources.js
-```
-
-It re-fetches GeoNames and re-derives wards without touching curated entries.
-
-Run the test suite before submitting a PR:
-
-```bash
-npm test
-```
-
 ## Versioning and changelog
 
 This package follows [Semantic Versioning](https://semver.org/). There is no separate
@@ -403,20 +364,13 @@ releases so far:
 
 - **1.1.0** — Added the official county/constituency/ward hierarchy and a bulk GeoNames merge
   (8,000+ records, up from ~100 curated entries). Added `getByConstituency()`, `ward` as a
-  `type`, `constituency`/`population`/`source` fields, and `TownSource`. `nearBy()` now filters
-  out coordinate-less records (i.e. wards) instead of returning `NaN` distances for them.
+  `type`, and `constituency`/`population` fields. `nearBy()` now filters out coordinate-less
+  records (i.e. wards) instead of returning `NaN` distances for them.
 - **1.0.0** — Initial release: hand-curated dataset of Kenyan cities, municipalities, towns, and
   satellite settlements, with `getAll`, `search`, `getByName`, `getByCounty`, `getByType`,
   `getSatelliteTowns`, `nearBy`, and `listCounties`.
 
 Check `version` in [package.json](package.json) for the currently installed version.
-
-## Publishing (for maintainers)
-
-```bash
-npm login
-npm publish
-```
 
 ## License
 
