@@ -1,9 +1,11 @@
 # kenya-towns
 
-Comprehensive dataset of Kenyan towns, cities, and **satellite/informal settlements** —
-not just administrative units (counties, sub-counties, wards). Includes places like
-Syokimau, Kitengela, Ongata Rongai, Ruaka, and Karen that other Kenya geodata packages
-leave out because they aren't official administrative divisions.
+Comprehensive dataset of Kenyan towns, cities, **satellite/informal settlements**, and
+administrative wards. It includes both the hand-curated places like Syokimau, Kitengela,
+Ongata Rongai, Ruaka, and Karen that other Kenya geodata packages leave out because they
+aren't official administrative divisions, *and* a bulk merge of GeoNames' populated-places
+data and the official county/constituency/ward hierarchy — over 8,000 records across all
+47 counties.
 
 ## Install
 
@@ -28,7 +30,10 @@ kenyaTowns.getByName('Syokimau');
 // All towns in a county
 kenyaTowns.getByCounty('Kiambu');
 
-// Filter by type: 'city' | 'municipality' | 'town' | 'satellite'
+// All wards in a constituency
+kenyaTowns.getByConstituency('Dadaab');
+
+// Filter by type: 'city' | 'municipality' | 'town' | 'satellite' | 'ward'
 kenyaTowns.getByType('satellite');
 kenyaTowns.getSatelliteTowns(); // shorthand for getByType('satellite')
 
@@ -41,7 +46,7 @@ kenyaTowns.listCounties();
 
 ## Data shape
 
-Each town looks like:
+Each record looks like:
 
 ```json
 {
@@ -49,7 +54,21 @@ Each town looks like:
   "county": "Machakos",
   "type": "satellite",
   "lat": -1.3691,
-  "lng": 36.9436
+  "lng": 36.9436,
+  "source": "curated"
+}
+```
+
+Ward records (from the official administrative hierarchy) have no coordinates but carry
+a `constituency` instead:
+
+```json
+{
+  "name": "Abakaile",
+  "county": "Garissa",
+  "constituency": "Dadaab",
+  "type": "ward",
+  "source": "kenya-administrative-divisions"
 }
 ```
 
@@ -59,6 +78,29 @@ Each town looks like:
 - `town` — recognized town, not necessarily its own administrative seat
 - `satellite` — grown organically around a larger city/town, not an independent
   administrative unit (e.g. Syokimau, Kitengela, Ruaka)
+- `ward` — official administrative ward (no coordinates); see `constituency`
+
+`source` tracks provenance and is one of `curated`, `geonames`, or
+`kenya-administrative-divisions` (see Attribution below). `lat`/`lng` are omitted on
+records that don't have coordinates (currently just wards), and `population` is present
+when GeoNames reports one.
+
+## Attribution
+
+This package bundles data from:
+
+- **[GeoNames](https://www.geonames.org/)** — populated-places data (name, coordinates,
+  population), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **[kenya-administrative-divisions](https://www.npmjs.com/package/kenya-administrative-divisions)**
+  (MIT) — the official county/constituency/ward hierarchy.
+
+Two other sources were evaluated and intentionally excluded from the shipped dataset:
+- **Simplemaps' Kenya Cities Database** — its free tier's license prohibits public
+  redistribution without permission, which is incompatible with publishing the data in
+  this open-source package. It was only used locally to spot-check a sample of merged
+  coordinates, never committed.
+- **AFRICOVER/FAO's Kenya towns layer** — an old (~1998-2000) 1:100,000-scale shapefile,
+  skipped as low marginal value over GeoNames' more current, more complete coverage.
 
 ## TypeScript
 
@@ -70,9 +112,12 @@ import { getAll, Town, TownType } from 'kenya-towns';
 
 ## Contributing / expanding the dataset
 
-This is a starter dataset (~100 towns across all 47 counties). PRs adding missing
-towns, correcting coordinates, or adding fields (population, postal code, etc.) are
-welcome — just follow the existing shape in `data/towns.json`.
+`data/towns.json` combines a hand-curated core (~100 places, `source: "curated"`) with a
+bulk merge of GeoNames and `kenya-administrative-divisions` data (`scripts/merge-sources.js`,
+a maintainer-only script — not published with the package). PRs adding/correcting curated
+entries (especially satellite towns) are welcome — just follow the existing shape and set
+`source: "curated"`. To refresh the bulk-merged data, run `node scripts/merge-sources.js`;
+it re-fetches GeoNames and re-derives wards without touching curated entries.
 
 ## Publishing (for maintainers)
 
