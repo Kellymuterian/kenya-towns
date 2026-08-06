@@ -1,16 +1,29 @@
 {
   "name": "kenya-towns",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Comprehensive dataset of Kenyan towns, cities, satellite/informal settlements, and administrative wards, with query helpers.",
   "main": "index.js",
   "types": "index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "index.js",
+    "index.mjs",
     "index.d.ts",
     "data/towns.json"
   ],
   "scripts": {
-    "test": "node test.js"
+    "build": "tsc -p tsconfig.json",
+    "test": "node test.js",
+    "verify-types": "npm run build && git diff --exit-code index.d.ts",
+    "prepublishOnly": "npm run verify-types && npm test"
   },
   "keywords": [
     "kenya",
@@ -31,6 +44,9 @@
     "url": "git+https://github.com/Kellymuterian/kenya-towns.git"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }
