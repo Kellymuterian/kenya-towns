@@ -1,6 +1,6 @@
 {
   "name": "kenya-towns",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Comprehensive dataset of Kenyan towns, cities, satellite/informal settlements, and administrative wards, with query helpers.",
   "main": "index.js",
   "types": "index.d.ts",
