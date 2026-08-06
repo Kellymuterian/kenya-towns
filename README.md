@@ -27,8 +27,10 @@ loaded into memory, and every function is a synchronous, in-memory filter/map/so
   - [getSatelliteTowns()](#getsatellitetowns)
   - [nearBy(lat, lng, radiusKm)](#nearbylat-lng-radiuskm)
   - [listCounties()](#listcounties)
+  - [query(options)](#queryoptions)
 - [Error handling](#error-handling)
 - [TypeScript support](#typescript-support)
+- [ESM, CommonJS, and bundle size](#esm-commonjs-and-bundle-size)
 - [Attribution](#attribution)
 - [Versioning and changelog](#versioning-and-changelog)
 - [License](#license)
@@ -39,7 +41,19 @@ loaded into memory, and every function is a synchronous, in-memory filter/map/so
 npm install kenya-towns
 ```
 
-Requires Node.js `>=12`. No peer dependencies, no config, nothing to build.
+```bash
+yarn add kenya-towns
+```
+
+```bash
+pnpm add kenya-towns
+```
+
+```bash
+bun add kenya-towns
+```
+
+Requires Node.js `>=14`. No peer dependencies, no config, nothing to build.
 
 ## Quick start
 
@@ -61,14 +75,16 @@ const nearby = kenyaTowns.nearBy(-1.2921, 36.8219, 15);
 console.log(nearby.map((t) => `${t.name} (${t.distanceKm.toFixed(1)}km)`));
 ```
 
-ES module / TypeScript import syntax also works if your bundler/transpiler supports CommonJS
-interop:
+Native ESM works too — the package ships a real ESM entry point (`index.mjs`) with named
+`export` statements, selected automatically via `package.json`'s `exports` map whenever you
+`import` rather than `require`:
 
 ```ts
-import * as kenyaTowns from 'kenya-towns';
-// or, since there's no default export:
 import { getAll, search, nearBy, Town } from 'kenya-towns';
 ```
+
+See [ESM, CommonJS, and bundle size](#esm-commonjs-and-bundle-size) for what this does and
+doesn't buy you.
 
 ## Data shape
 
@@ -293,6 +309,44 @@ kenyaTowns.listCounties();
 
 **Returns:** `string[]`
 
+---
+
+### `query(options)`
+
+Combine multiple filters in a single call instead of chaining the single-purpose `getBy*`
+helpers or filtering the result of `getAll()` yourself. All provided filters are **ANDed**
+together; `county` and `type` each accept either a single string or an array of strings, which
+**OR-matches** within that field. Supports `limit` and `fields` (projection) for trimming large
+result sets down to just what you need.
+
+```js
+// Satellite towns in Kiambu county
+kenyaTowns.query({ county: 'Kiambu', type: 'satellite' });
+
+// Cities or municipalities, in any of three counties
+kenyaTowns.query({ type: ['city', 'municipality'], county: ['Nairobi', 'Kiambu', 'Mombasa'] });
+
+// First 10 matches, name + coordinates only
+kenyaTowns.query({ county: 'Nairobi', limit: 10, fields: ['name', 'lat', 'lng'] });
+// => [{ name: 'Nairobi', lat: -1.2921, lng: 36.8219 }, ...]
+
+// No options returns everything, same as getAll()
+kenyaTowns.query();
+```
+
+**Parameters:** `options` (optional object)
+| Name            | Type                          | Description                                                        |
+|-----------------|--------------------------------|----------------------------------------------------------------------|
+| `name`          | `string`                       | Substring to match against `name`, case-insensitive.                |
+| `county`        | `string \| string[]`           | County name(s), case-insensitive. Array is OR-matched.              |
+| `type`          | `TownType \| TownType[]`       | Type(s), case-insensitive. Array is OR-matched.                     |
+| `constituency`  | `string`                       | Constituency name, case-insensitive.                                |
+| `limit`         | `number`                       | Cap the number of results returned.                                 |
+| `fields`        | `(keyof Town)[]`               | If set, each result object only contains these keys.                |
+
+**Returns:** `Town[]` (or `Partial<Town>[]` when `fields` is used) — a fresh array; empty if
+nothing matches. Filters that are omitted, falsy, or an empty array are ignored.
+
 ## Error handling
 
 This package does not throw for bad input — it fails soft by design, so you don't need to
@@ -301,16 +355,21 @@ wrap calls in `try`/`catch` for normal use:
 - Passing `undefined`, `null`, or an empty string for a required `string` parameter
   (`search`, `getByName`, `getByCounty`, `getByConstituency`, `getByType`) returns an **empty
   array** (or `undefined` for `getByName`, since it returns a single record) instead of
-  throwing.
+  throwing. `query()` follows the same rule per-filter: an omitted or falsy filter is simply
+  skipped rather than throwing or matching nothing.
 - A query that matches nothing returns an empty array (or `undefined` for `getByName`) — never
   `null` and never a thrown error.
 - `nearBy()` expects `lat`/`lng` to be numbers. Passing non-numeric values (e.g. strings) will
   produce `NaN` distances rather than throwing; those results are then dropped by the
   `distanceKm <= radiusKm` filter, so you'll simply get an empty array back. Validate `lat`/`lng`
   yourself before calling if you need to distinguish "bad input" from "nothing nearby."
-- The dataset itself (`data/towns.json`) is loaded once at `require()` time. If the package is
-  installed correctly, this cannot fail at runtime — there's no file I/O, network call, or
-  parsing step to catch errors from after that point.
+- The dataset itself (`data/towns.json`) is loaded once, lazily, the first time any query
+  function is called (not at `require()`/`import` time). If the package is installed correctly,
+  this cannot fail at runtime — there's no file I/O, network call, or parsing step to catch
+  errors from after that point.
+- Every array-returning function (including `getAll()`) returns a **fresh copy** on each call.
+  Mutating a result (`.push()`, `.sort()`, etc.) never affects the underlying dataset or any
+  other call's result.
 
 In short: check for `undefined` (from `getByName`) or empty arrays (from everything else)
 rather than catching exceptions.
@@ -319,13 +378,20 @@ rather than catching exceptions.
 
 Type definitions are bundled in `index.d.ts` — no separate `@types/kenya-towns` package needed.
 
+`index.d.ts` is **generated**, not hand-maintained: it's compiled by `tsc` directly from the
+JSDoc annotations in `index.js` (see `npm run build` / [tsconfig.json](tsconfig.json)), and CI
+fails the build if the committed file drifts from what regenerating it would produce. The types
+below are always a true reflection of the runtime code, not a manually-updated approximation of it.
+
 ```ts
-import { getAll, getByType, nearBy, Town, TownType, TownWithDistance } from 'kenya-towns';
+import { getAll, getByType, nearBy, query, Town, TownType, TownWithDistance } from 'kenya-towns';
 
 const cities: Town[] = getByType('city');
 
 const results: TownWithDistance[] = nearBy(-1.2921, 36.8219, 15);
 results.forEach((t) => console.log(t.name, t.distanceKm));
+
+const kiambuSatellites: Town[] = query({ county: 'Kiambu', type: 'satellite' });
 
 // TownType is a string-literal union, so this is a compile error:
 // getByType('village'); // Argument of type '"village"' is not assignable to parameter of type 'TownType'
@@ -338,6 +404,33 @@ Exported types:
 | `TownType`          | `'city' \| 'municipality' \| 'town' \| 'satellite' \| 'ward'`                       |
 | `Town`              | `{ name: string; county: string; type: TownType; lat?: number; lng?: number; constituency?: string; population?: number }` |
 | `TownWithDistance`  | `Town & { distanceKm: number }`                                                     |
+| `QueryOptions`      | Options object accepted by `query()` — see [query(options)](#queryoptions).         |
+
+## ESM, CommonJS, and bundle size
+
+Both module systems are supported natively via `package.json`'s `exports` map — no transpiler
+or CommonJS-interop shimming required:
+
+```js
+const kenyaTowns = require('kenya-towns'); // resolves to index.js (CJS)
+```
+
+```js
+import { getAll, query } from 'kenya-towns'; // resolves to index.mjs (real ESM, named exports)
+```
+
+`sideEffects: false` is also set in `package.json`, so bundlers (webpack, Rollup, esbuild, Vite)
+can drop unused named exports from your final bundle — e.g. if you only import `getByName`, the
+`nearBy`/`query`/etc. function bodies can be eliminated.
+
+**What this does *not* do:** `data/towns.json` (~1MB) is a single file, not split per-county or
+per-record, and every exported function reads from the same in-memory array. So while
+tree-shaking can drop *unused functions*, it cannot drop *unused data* — importing anything from
+this package still pulls in the full ~1MB dataset once, the first time any query function runs
+(it's lazily `require`'d, not loaded at import time, but it's still loaded in full). If you only
+need a handful of records and bundle size is critical (e.g. a browser bundle), consider filtering
+server-side / at build time and shipping only the result, rather than bundling this package
+client-side wholesale.
 
 ## Attribution
 
@@ -362,6 +455,13 @@ This package follows [Semantic Versioning](https://semver.org/). There is no sep
 `CHANGELOG.md`; release notes live in the git history and npm's version history page. Notable
 releases so far:
 
+- **1.2.0** — Added `query()` for combined multi-filter lookups with `limit`/`fields` projection.
+  Added a native ESM entry point (`index.mjs`) alongside the existing CJS `index.js`, wired up via
+  `package.json`'s `exports` map, plus `sideEffects: false` for tree-shaking. `index.d.ts` is now
+  generated from JSDoc via `tsc` instead of hand-maintained, with CI enforcing no drift. `getAll()`
+  now returns a fresh array copy instead of the shared internal reference. Added a `LICENSE` file
+  and a GitHub Actions CI workflow (test matrix + type-drift check + `prepublishOnly` gate). Raised
+  minimum Node.js version to `>=14`.
 - **1.1.0** — Added the official county/constituency/ward hierarchy and a bulk GeoNames merge
   (8,000+ records, up from ~100 curated entries). Added `getByConstituency()`, `ward` as a
   `type`, and `constituency`/`population` fields. `nearBy()` now filters out coordinate-less
@@ -374,4 +474,4 @@ Check `version` in [package.json](package.json) for the currently installed vers
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
